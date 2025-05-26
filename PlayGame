@@ -1,0 +1,95 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local root = character:WaitForChild("HumanoidRootPart")
+
+local autoPlay = true
+local currentIndex = 1
+
+-- Lock đúng GameId
+local allowedGameId = 7018190066
+if game.GameId ~= allowedGameId then
+    warn("Lock")
+    return
+end
+
+-- UI - Saryn Style
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SarynHub_AutoPlay"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local bgFrame = Instance.new("Frame")
+bgFrame.Size = UDim2.fromScale(1, 1)
+bgFrame.Position = UDim2.fromScale(0, 0)
+bgFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+bgFrame.BorderSizePixel = 0
+bgFrame.Parent = screenGui
+
+local logo = Instance.new("ImageLabel")
+logo.Size = UDim2.fromOffset(320, 320)
+logo.AnchorPoint = Vector2.new(0.5, 0.5)
+logo.Position = UDim2.new(0.5, 0, 0.5, -100)
+logo.BackgroundTransparency = 1
+logo.Image = "rbxassetid://77556143073114"
+logo.ScaleType = Enum.ScaleType.Fit
+logo.Parent = bgFrame
+
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(0, 300, 0, 50)
+statusLabel.Position = UDim2.new(0.5, -150, 0.5, 130)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "🔐Wait for Play...🔐"
+statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+statusLabel.Font = Enum.Font.GothamBold
+statusLabel.TextScaled = true
+statusLabel.Parent = bgFrame
+
+-- 
+local footer = Instance.new("TextLabel")
+footer.Size = UDim2.new(1, 0, 0, 40)
+footer.Position = UDim2.new(0, 0, 1, -130)
+footer.BackgroundTransparency = 1
+footer.Text = "Saryn Hub | Auto Farm Bond"
+footer.Font = Enum.Font.GothamBold
+footer.TextColor3 = Color3.fromRGB(255, 255, 255)
+footer.TextScaled = true
+footer.Parent = bgFrame
+
+-- Play points
+local playPoints = {
+    CFrame.new(44.5, 7.6, 100.75),
+    CFrame.new(44.5, 7.6, 115.75),
+    CFrame.new(44.5, 7.6, 130.75),
+    CFrame.new(44.5, 7.6, 145.75),
+}
+
+-- Loop Auto Play
+task.spawn(function()
+    while task.wait(0.01) do
+        if autoPlay then
+            if currentIndex > #playPoints then currentIndex = 1 end
+            root.CFrame = playPoints[currentIndex]
+            currentIndex += 1
+
+            local args = {
+                {
+                    trainId = "default",
+                    maxMembers = 1,
+                    gameMode = "Normal"
+                }
+            }
+
+            pcall(function()
+                ReplicatedStorage
+                    :WaitForChild("Shared")
+                    :WaitForChild("Network")
+                    :WaitForChild("RemoteEvent")
+                    :WaitForChild("CreateParty")
+                    :FireServer(unpack(args))
+            end)
+        end
+    end
+end)
