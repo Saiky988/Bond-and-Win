@@ -1,0 +1,398 @@
+task.wait(5)
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local EndDecision = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("EndDecision")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local root = character:WaitForChild("HumanoidRootPart")
+
+local autoFarmBond = false
+local CollectBond = false
+local started = false
+local tweenSpeed = 30000
+local currentIndex = 1
+
+local collectDelay = 0.01
+local lastCollectTime = 0
+
+-- 
+local gunCFrame = CFrame.new(
+    350.500061, 50.8906364, -9100.78516,
+    -0.905841053, -0.0674131364, -0.418219507,
+     0.0113797104,  0.983027875, -0.183102921,
+     0.423464984, -0.170621336, -0.889699876
+)
+local rangeMaxGun = 700
+
+-- 
+local bondPoints = {
+    CFrame.new(-597.602051, 3.04999924, 24555.6953),
+    CFrame.new(-491.373199, 3.04999924, 21901.5879),
+    CFrame.new(-50.3060799, 3.04999924, 19222.1172),
+    CFrame.new(-93.046257, 3.04999924, 15457.1084),
+    CFrame.new(-548.845154, 3.04999924, 12575.6924),
+    CFrame.new(-574.384705, 3.04999924, 10192.96),
+    CFrame.new(-193.738312, 3.04999924, 7612.63525),
+    CFrame.new(-6.85292673, 3.04999924, 3732.54126),
+    CFrame.new(-410.174133, 3.04999924, 1172.42236),
+    CFrame.new(-640.755493, 3.04999924, -973.530029),
+    CFrame.new(-370.71521, 3.04999924, -3903.75684),
+    CFrame.new(-15.0844307, 3.04999924, -6189.13086),
+    CFrame.new(-35.1734848, 3.04999924, -8897.91309),
+    CFrame.new(-595.396667, 3.04999924, -12676.5557),
+    CFrame.new(-555.661316, 3.04999924, -15097.9824),
+    CFrame.new(-200.203613, 3.04999924, -17328.5059),
+    CFrame.new(-27.424839, 3.04999924, -21448.3105),
+    CFrame.new(-366.871094, 3.04999924, -23549.6152),
+    CFrame.new(-611.535278, 3.04999924, -25578.6367),
+    CFrame.new(-530.570007, 3.04999924, -27671.7832),
+    CFrame.new(10.1347151, 3.04999924, -31179.041),
+    CFrame.new(20.4309101, 3.04999924, -33502.5195),
+    CFrame.new(-411.864166, 3.04999924, -36309.375),
+    CFrame.new(-598.017151, 3.04999924, -39389.3906),
+    CFrame.new(-68.6294479, 3.04999924, -43084.1992),
+    CFrame.new(-61.90345, 3.04999924, -46597.5273),
+    CFrame.new(55.5807114, 38.0000267, 30037.2012),
+}
+
+-- 
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SarynHubGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+
+-- 
+local firstTeleportDone = false
+
+local function teleportTo(cf)
+    root.Anchored = true
+    root.CFrame = cf
+    if not firstTeleportDone then
+        task.wait(3)
+        firstTeleportDone = true
+    else
+        task.wait(0.5)
+    end
+    root.Anchored = false
+end
+
+
+-- 
+local function tweenTo(cf)
+    local distance = (root.Position - cf.Position).Magnitude
+    local duration = distance / tweenSpeed
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(root, tweenInfo, { CFrame = cf })
+
+    local success, err = pcall(function()
+        tween:Play()
+        task.wait(duration)
+    end)
+
+    if not success then
+        warn("Tween error:", err)
+    end
+end
+
+-- 
+local function getLockedGun()
+    local runtime = Workspace:FindFirstChild("RuntimeItems")
+    if not runtime then return nil end
+
+    for _, v in ipairs(runtime:GetChildren()) do
+        if v:IsA("Model") and v.Name == "MaximGun" then
+            local dist = (v:GetPivot().Position - gunCFrame.Position).Magnitude
+            if dist <= rangeMaxGun then
+                return v
+            end
+        end
+    end
+
+    return nil
+end
+
+-- 
+local function sitInGun()
+    local gun = getLockedGun()
+    local seat = gun and gun:FindFirstChild("VehicleSeat")
+    if seat and seat:IsA("VehicleSeat") then
+        if seat.Disabled then seat.Disabled = false end
+        teleportTo(seat.CFrame + Vector3.new(0, 0, 0))
+        return true
+    end
+    return false
+end
+
+-- 
+local function jumpOff()
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end
+
+-- 
+local function freezeMidAir()
+    local freezePos = root.Position + Vector3.new(0, 5, 0)
+    root.Anchored = true
+    root.CFrame = CFrame.new(freezePos)
+    task.wait(1)
+    root.Anchored = false
+end
+
+-- 
+local function tryTweenToBond()
+    local runtime = Workspace:FindFirstChild("RuntimeItems")
+    if runtime then
+        for _, v in ipairs(runtime:GetChildren()) do
+            if v:IsA("Model") and v.Name == "Bond" then
+                local bondPos = v:GetPivot().Position
+                local distance = (root.Position - bondPos).Magnitude
+                if distance <= 999e9 then
+                    tweenTo(CFrame.new(bondPos + Vector3.new(0, 4, 0)))
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+--
+local function setupGun()
+    teleportTo(gunCFrame)
+    if sitInGun() then
+        task.wait(0.6)
+        jumpOff()
+        freezeMidAir()
+        task.wait(0.5)
+        sitInGun()
+        task.wait(2)
+    end
+end
+
+-- 
+RunService.Heartbeat:Connect(function()
+    if CollectBond and tick() - lastCollectTime >= collectDelay then
+        lastCollectTime = tick()
+
+        for _, bond in ipairs(Workspace:GetDescendants()) do
+            if bond:IsA("Model") and bond.Name == "Bond" then
+                local args = { bond }
+                pcall(function()
+                    ReplicatedStorage
+                        :WaitForChild("Shared")
+                        :WaitForChild("Network")
+                        :WaitForChild("RemotePromise")
+                        :WaitForChild("Remotes")
+                        :WaitForChild("C_ActivateObject")
+                        :FireServer(unpack(args))
+                end)
+            end
+        end
+    end
+end)
+
+-- 
+local playerGui = player:WaitForChild("PlayerGui")
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SarynHubGui"
+screenGui.IgnoreGuiInset = true
+screenGui.ResetOnSpawn = false
+screenGui.Enabled = false
+screenGui.Parent = playerGui
+
+-- 
+local bgFrame = Instance.new("Frame")
+bgFrame.Size = UDim2.fromScale(1, 1)
+bgFrame.Position = UDim2.fromScale(0, 0)
+bgFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+bgFrame.BorderSizePixel = 0
+bgFrame.Parent = screenGui
+
+-- 
+local logo = Instance.new("ImageLabel")
+logo.Size = UDim2.fromOffset(320, 320)
+logo.AnchorPoint = Vector2.new(0.5, 0.5)
+logo.Position = UDim2.new(0.5, 0, 0.5, 0)
+logo.BackgroundTransparency = 1
+logo.Image = "rbxassetid://77556143073114" -- Logo
+logo.ScaleType = Enum.ScaleType.Fit
+logo.Parent = bgFrame
+
+-- 
+local footer = Instance.new("TextLabel")
+footer.Size = UDim2.new(1, 0, 0, 40)
+footer.Position = UDim2.new(0, 0, 1, -150)
+footer.BackgroundTransparency = 1
+footer.Text = "Saryn Hub | Auto Farm Bond"
+footer.Font = Enum.Font.GothamBold
+footer.TextColor3 = Color3.fromRGB(255, 255, 255)
+footer.TextScaled = true
+footer.Parent = bgFrame
+
+-- Time
+local timerLabel = Instance.new("TextLabel")
+timerLabel.Size = UDim2.new(0, 200, 0, 40)
+timerLabel.Position = UDim2.new(0.5, -100, 0.5, 180) 
+timerLabel.BackgroundTransparency = 1
+timerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+timerLabel.Font = Enum.Font.GothamBold
+timerLabel.TextSize = 30
+timerLabel.Text = "Time: 00:00"
+timerLabel.Visible = false
+timerLabel.Parent = bgFrame
+
+-- 
+local function formatTime(seconds)
+    local mins = math.floor(seconds / 60)
+    local secs = seconds % 60
+    return string.format("%02d:%02d", mins, secs)
+end
+
+-- 
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if counting then
+            elapsedTime = math.floor(tick() - startTime)
+            timerLabel.Text = "Time: " .. formatTime(elapsedTime)
+        end
+    end
+end)
+
+autoFarmBond = true
+CollectBond = true
+screenGui.Enabled = true
+startTime = tick()
+elapsedTime = 0
+counting = true
+timerLabel.Text = "Time: 00:00"
+timerLabel.Visible = true
+
+-- Countdown tích hợp vào SarynHubGui
+local countdownLabel = Instance.new("TextLabel")
+countdownLabel.Size = UDim2.new(0, 260, 0, 60)
+countdownLabel.Position = UDim2.new(0.5, -130, 0.5, 200)
+countdownLabel.BackgroundTransparency = 1
+countdownLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+countdownLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+countdownLabel.Font = Enum.Font.GothamBold
+countdownLabel.TextScaled = true
+countdownLabel.Text = "Countdown: 10:00"
+countdownLabel.Parent = bgFrame
+
+local function formatTime(seconds)
+    local mins = math.floor(seconds / 60)
+    local secs = seconds % 60
+    return string.format("%02d:%02d", mins, secs)
+end
+
+local function startCountdown(duration, callback)
+    task.spawn(function()
+        for i = duration, 0, -1 do
+            countdownLabel.Text = "Countdown: " .. formatTime(i)
+            task.wait(1)
+        end
+        if callback then callback() end
+    end)
+end
+
+-- Giai đoạn sau khi countdown xong
+local function postCountdownAction()
+    countdownLabel.Text = "Teleporting..."
+    
+    -- B1: Teleport tới vị trí đầu
+    local firstCFrame = CFrame.new(
+        -351.356079, 2.99993825, -49039.6562,
+        0.999874949, 3.88970456e-08, -0.0158135705,
+        -3.87420087e-08, 1, 1.01103428e-08,
+        0.0158135705, -9.49642853e-09, 0.999874949
+    )
+    teleportTo(firstCFrame)
+
+    -- B2: Gửi prompt nhiều lần
+    local prompt = workspace.Baseplates.FinalBasePlate
+        .OutlawBase.Bridge.BridgeControl.Crank.Model.Mid.EndGame
+
+    for _ = 1, 10 do
+        pcall(function()
+            fireproximityprompt(prompt)
+        end)
+        task.wait(0.1)
+    end
+
+    -- B3: Teleport tới vị trí 2
+    local secondCFrame = CFrame.new(55.5807114, 38.0000267, 30037.2012)
+    teleportTo(secondCFrame)
+
+    -- B4: Bắt đầu đếm ngược 4 phút tiếp theo
+    startCountdown(240, function()
+        countdownLabel.Text = "Done!"
+        countdownLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+    end)
+end
+
+-- Bắt đầu đếm ngược 10 phút đầu tiên
+startCountdown(600, postCountdownAction)
+
+-- 
+local function finishFarm()
+    autoFarmBond = false
+    CollectBond = false
+    started = false
+    timerLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+    counting = false
+
+--
+    doneLabel.Visible = true
+    task.delay(1, function()
+        doneLabel.Visible = false
+        timerLabel.Visible = false
+    end)
+end
+
+-- 
+local function searchBondPoints()
+    if currentIndex > #bondPoints then
+        finishFarm()
+        return
+    end
+
+    local cf = bondPoints[currentIndex]
+
+    if tryTweenToBond() then
+        return
+    end
+
+    teleportTo(cf)
+    currentIndex += 1
+end
+
+-- 
+task.spawn(function()
+    while task.wait(0.5) do
+        if autoFarmBond and not started then
+            setupGun()
+            started = true
+        elseif autoFarmBond and started then
+            searchBondPoints()
+        end
+    end
+end)
+
+-- Auto Again
+local args = { false }
+
+while true do
+    EndDecision:FireServer(unpack(args))
+    task.wait(0.5)
+end
+
+-- 
