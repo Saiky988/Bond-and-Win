@@ -1,4 +1,53 @@
-task.wait(5)
+
+
+if not game then
+    warn("Error: 'game' not found. Check your executor or environment.")
+    return
+end
+
+if not game.GetService then
+    warn("Error: 'game:GetService' not found. Check your executor.")
+    return
+end
+
+local HttpService = game:GetService("HttpService")
+if not HttpService then
+    warn("Error: Cannot get HttpService. Executor may not support it or game blocks HttpService.")
+    return
+end
+
+print("Successfully obtained HttpService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+if not LocalPlayer then
+    warn("Error: LocalPlayer not found. Please wait for the game to load.")
+    return
+end
+
+local function spoofExecutor()
+    local originalIdentifyExecutor = identifyexecutor
+    identifyexecutor = function()
+        return "Roblox"
+    end
+    
+    local originalGetExecutorName = getexecutorname
+    getexecutorname = function()
+        return "Roblox"
+    end
+end
+
+local msgs = {
+    "SarynHub | Dead Rails",
+    "version 0.3.2beta",
+    "3", "2", "1",
+    "Successfully"
+}
+
+for _, msg in ipairs(msgs) do
+    print(msg)
+    task.wait(1)
+end
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -59,13 +108,6 @@ local bondPoints = {
     CFrame.new(-61.90345, 3.04999924, -46597.5273),
     CFrame.new(55.5807114, 38.0000267, 30037.2012),
 }
-
--- 
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "SarynHubGui"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = player:WaitForChild("PlayerGui")
-
 
 -- 
 local firstTeleportDone = false
@@ -142,7 +184,7 @@ local function freezeMidAir()
     local freezePos = root.Position + Vector3.new(0, 5, 0)
     root.Anchored = true
     root.CFrame = CFrame.new(freezePos)
-    task.wait(1)
+    task.wait(1.5)
     root.Anchored = false
 end
 
@@ -168,7 +210,7 @@ end
 local function setupGun()
     teleportTo(gunCFrame)
     if sitInGun() then
-        task.wait(0.6)
+        task.wait(0.7)
         jumpOff()
         freezeMidAir()
         task.wait(0.5)
@@ -245,7 +287,7 @@ timerLabel.BackgroundTransparency = 1
 timerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 timerLabel.Font = Enum.Font.GothamBold
 timerLabel.TextSize = 30
-timerLabel.Text = "Time: 00:00"
+timerLabel.Text = "🦴CollectBond: 00:00🦴"
 timerLabel.Visible = false
 timerLabel.Parent = bgFrame
 
@@ -262,7 +304,7 @@ task.spawn(function()
         task.wait(1)
         if counting then
             elapsedTime = math.floor(tick() - startTime)
-            timerLabel.Text = "Time: " .. formatTime(elapsedTime)
+            timerLabel.Text = "🦴CollectBond: " .. formatTime(elapsedTime) .. "🦴"
         end
     end
 end)
@@ -273,13 +315,13 @@ screenGui.Enabled = true
 startTime = tick()
 elapsedTime = 0
 counting = true
-timerLabel.Text = "Time: 00:00"
+timerLabel.Text = "🦴CollectBond: 00:00🦴"
 timerLabel.Visible = true
 
 -- Countdown tích hợp vào SarynHubGui
 local countdownLabel = Instance.new("TextLabel")
 countdownLabel.Size = UDim2.new(0, 260, 0, 60)
-countdownLabel.Position = UDim2.new(0.5, -130, 0.5, 200)
+countdownLabel.Position = UDim2.new(0.5, -130, 0.5, 220)
 countdownLabel.BackgroundTransparency = 1
 countdownLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 countdownLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -297,7 +339,7 @@ end
 local function startCountdown(duration, callback)
     task.spawn(function()
         for i = duration, 0, -1 do
-            countdownLabel.Text = "Countdown: " .. formatTime(i)
+            countdownLabel.Text = "🔐Countdown🔐 \n" .. formatTime(i)
             task.wait(1)
         end
         if callback then callback() end
